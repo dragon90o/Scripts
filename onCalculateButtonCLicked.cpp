@@ -3,91 +3,147 @@
 #include <sstream>
 #include <complex>
 #include <vector>
-#include <cmath> // Para usar M_PI
-#include "/mnt/c/Users/dravv/Projects/Qt/BodeDiagram/exprtk/exprtk.hpp"
+#include <cmath>
+#include <utility>
+#include <iomanip>
+#include "/mnt/c/Users/dravv/Projects/Qt/BodeDiagram/exprtk/exprtk.hpp" 
 
-// Función para calcular las frecuencias
-std::vector<double> frecuencias(double fmin, double fmax) {
-    std::vector<double> freq; 
-    for (double i = fmin; i <= fmax; i++) { 
-        freq.push_back(i); 
+class MagnitudeAndPhase {
+    private:
+        std::string _userFunction;
+        int _freqMin;
+        int _freqMax;
+	double _s_real;
+
+    public:
+        MagnitudeAndPhase(std::string userFunction, int freqMin, int freqMax, double s_real );
+        std::pair<std::vector<double>, std::vector<double>> frequencies(); 
+        std::string translatefunction(double magnitude);
+	double evaluatetranslatedfunction(std::string translated);
+        double calculateMagnitude(double w);
+        double calculatePhase(double w);
+};
+
+// Constructor
+MagnitudeAndPhase::MagnitudeAndPhase(std::string userFunction, int freqMin, int freqMax, double s_real) 
+    : _userFunction(userFunction), _freqMin(freqMin), _freqMax(freqMax), _s_real(s_real){}
+
+// Definición de la función frequencias
+std::pair<std::vector<double>, std::vector<double>> MagnitudeAndPhase::frequencies() {
+    std::vector<double> freqVector;
+    std::vector<double> angularFreqVector;
+
+    for (double i = _freqMin; i <= _freqMax; i += 1.0) {
+        freqVector.push_back(i);
+        angularFreqVector.push_back(2 * M_PI * i); // Cálculo de la frecuencia angular
     }
-    return freq;
+
+    return std::make_pair(angularFreqVector, freqVector); // Retorna el par de vectores
+}
+//Definicion de la funcion de transferir valores de s
+std::string MagnitudeAndPhase::translatefunction(double magnitude){
+	std::string translatedfunction = _userFunction;
+	size_t pos = 0;
+
+	std::string magnitudeStr = std::to_string(magnitude);
+	while ((pos = translatedfunction.find("s", pos)) != std::string::npos) {
+		translatedfunction.replace(pos, 1, magnitudeStr);
+		pos += magnitudeStr.length();
+	}
+	return translatedfunction;
 }
 
-// Función para calcular la magnitud en dB
-double calculateMagnitude(exprtk::expression<double>& expr, double w) {
-    double s_real = 0.0;
-    double s_imag = w; // Representa s = j*w
-
-// Se actualizan las variables 's_real' y 's_imag' en la tabla de símbolos
-    expr.value(); // Evalúa la expresión como número complejo usando la parte imaginaria en w
-    
-    std::complex<double> H(s_real, s_imag);
-    return 20 * std::log10(std::abs(H)); // Magnitud en dB
+// Calcula la magnitud |s| = |j * w|
+double MagnitudeAndPhase::calculateMagnitude(double w) {
+    std::complex<double> s(_s_real, w);  // s = j * w
+    return std::abs(s);  // Retorna la magnitud |s|
 }
-// Función para calcular la fase en grados
-double calculatePhase(exprtk::expression<double>& expr, double w) {
-    double s_real = 0.0;
-    double s_imag = w; // Representa s = j*w
+double MagnitudeAndPhase::evaluatetranslatedfunction(std::string translated){
+	exprtk::expression<double> expression;
+	exprtk::parser<double> parser;
 
-    std::complex<double> H(s_real, s_imag); 
-    // Construye s como complejo usando w
-    return std::arg(H) * 180.0 / M_PI; // Fase en grados
+	if (!parser.compile(translated, expression)) {
+		std::cerr << "Error al compilar la funcion: "<<parser.error() << std::endl;
+		return 0.0; 
+	}
+	double result = expression.value();
+	double magnitudedB = 20 *log10(result);
+	return magnitudedB; 
+
 }
+double MagnitudeAndPhase::calculatePhase(double w){
+	std::complex<double> s(_s_real, w);
+        double magnitude = std::abs(s);
+        double phase = std::arg(s);
+
+        std::cout << "s: " << s << " -> Magnitud: " << magnitude << ", Fase en (radianes): " << phase << std::endl;
+
+	return std::arg(s)*(180.0 /M_PI);//retorna la fase en angulo 
+}
+//tancan(s+1)
 
 
 int main() {
-    double fMin;
-    double fMax;
-    std::string TransferFunction;
+    double _freqMin;
+    double _freqMax;
+    std::string _userFunction;
+    double _s_real;
 
-    // Solicitar al usuario la función de transferencia
-    std::cout << "Ingrese la Funcion de Trasferencia:(ej:10*s*(1000+s)/20/(20+s)/(5+s)): ";
-    std::getline(std::cin, TransferFunction);
+    std::cout << "escribe la funcion: " << std::endl;
+    std::getline(std::cin, _userFunction);
+    std::cout << "escribe la freqMin: " << std::endl;
+    std::cin >> _freqMin;
+    std::cout << "escribe la freqMax: " << std::endl;
+    std::cin >> _freqMax;
+    std::cout << "escribe el valor de sigma (o) si es diferente a 0.0: "<< std::endl;
+    std::cin >> _s_real;
 
-    // Solicitar al usuario los límites de frecuencia
-    std::cout << "Ingrese la frecuencia mínima en (Hz): ";
-    std::cin >> fMin;
+    // Crear objeto de la clase MagnitudeAndPhase
+    MagnitudeAndPhase mapObject(_userFunction, _freqMin, _freqMax, _s_real);
 
-    std::cout << "Ingrese la frecuencia máxima en (Hz): ";
-    std::cin >> fMax;
-    
-    // Configuración del parser y expresión
-    exprtk::symbol_table<double> symbol_table;
-    symbol_table.add_constants();
-    exprtk::expression<double> expr;
-    expr.register_symbol_table(symbol_table);
-    exprtk::parser<double> parser; 
+    //llama a la funcion frequencies();
+    auto [angularFreqVector, freqVector] = mapObject.frequencies();
 
-     // Validación de la función ingresada
-    if (!parser.compile(TransferFunction, expr)) {
-        std::cerr << "Error en la función ingresada. Verifique la sintaxis." << std::endl;
-        return 1;
+    // Imprimir frecuencias angulares
+    std::cout << "frequencias angulares Totales (w): ";
+    for (const auto& w : angularFreqVector) {
+        std::cout << std::fixed << std::setprecision(4) << w << " "; // Agregar un espacio entre los valores
     }
-//Genera magnitudes
-      std::vector<double> magnitudes;
-      //genera fases 
-    std::vector<double> phases;
+    std::cout << std::endl;
 
-    // Generar frecuencias en el rango dado
-    std::vector<double> freqs = frecuencias(fMin, fMax);
-    // Iterar sobre cada frecuencia
-    for (double f : freqs) {
-        // Calcular 'w' para cada frecuencia
-        double w = 2 * M_PI * f; // w = 2 * pi * f
-     double magnitude = calculateMagnitude(expr, w);
-        double phase = calculatePhase(expr, w);
-        // Mostrar la frecuencia y el valor completo de 'w' 
-	 magnitudes.push_back(magnitude);
-        phases.push_back(phase);
-
-        std::cout << "Frecuencia f: " << f << " Hz" << std::endl;
-        std::cout << "Valor de w (frecuencia angular): " << w << std::endl;
-	std::cout << "Magnitud en (dB): " << magnitude <<std::endl;
-	std::cout << "Fase en (grados): " << phase << std::endl; 
-	
+    // Imprimir frecuencias en Hz
+    std::cout << "frequencias Totales (Hz): ";
+    for (const auto& freq : freqVector) {
+        std::cout << std::fixed << std::setprecision(4) << freq << " "; // Agregar un espacio entre los valores
     }
+    std::cout << std::endl;
+
+
+    //resultado de funcion traducida translatedfunction() y
+    // Calcular e imprimir la magnitud de s para cada w
+    std::cout << "Magnitud y Fase: ";
+    for (const auto& w : angularFreqVector) {
+        double magnitude = mapObject.calculateMagnitude(w);
+	double phase = mapObject.calculatePhase(w);
+
+	std::cout << " --> Magnitud: "<< std::fixed << std::setprecision(4) << magnitude << std::endl;
+	std::cout <<"--> Fase Total en (grados): "<< std::fixed << std::setprecision(4) << phase << std::endl;
+        
+
+    //llamar a la funcion translatedfunction(con magnitude incluida)
+    std::cout <<"Formula (despues de traducir): ";
+    std::string translated = mapObject.translatefunction(magnitude);
+    std::cout <<"--> " << translated << " ";
+
+
+    //llama a evaluatetranslatedfunction(translated) para evaluar
+    double magnitudedB = mapObject.evaluatetranslatedfunction (translated);
+    std::cout << "Magnitud Total en (dB): "<< std::fixed<< std::setprecision(4) << magnitudedB << std::endl;
+    }
+    std::cout << std::endl;
+
+
+
 
     return 0;
 }
