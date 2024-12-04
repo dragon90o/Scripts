@@ -4,6 +4,7 @@
 #include <complex>
 #include <vector>
 #include <cmath>
+#include <regex>
 #include <utility>
 #include <iomanip>
 #include "/mnt/c/Users/dravv/Projects/Qt/BodeDiagram/exprtk/exprtk.hpp" 
@@ -42,37 +43,31 @@ std::vector<double> MagnitudeAndPhase::parseCoefficients(const std::string& poly
     std::vector<double> coefficients;
     std::string modifiedPoly = polynomial;
 
-    // Reemplazar potencias de 's' por 'pow(s, num)'
-    size_t pos = 0;
-    while ((pos = modifiedPoly.find("s^", pos)) != std::string::npos) {
-        modifiedPoly.replace(pos, 2, "pow(s, ");
-        pos += 7;  // Salta el nuevo "pow("
-        size_t endPos = modifiedPoly.find(' ', pos);
-        if (endPos == std::string::npos) {
-            endPos = modifiedPoly.find(')', pos);  // Para manejar expresiones cerradas
-        }
-        modifiedPoly.replace(endPos, 1, ")");
-    }
+    
+    // Usar una expresión regular para separar la expresión y manejar correctamente los operadores.
+    std::regex termRegex("([+-]?\\d*\\.\\d+|[+-]?\\d+)(s\\^\\d+|s)?"); // Regex para manejar coeficientes con s^n o s
+    auto termsBegin = std::sregex_iterator(modifiedPoly.begin(), modifiedPoly.end(), termRegex);
+    auto termsEnd = std::sregex_iterator();
 
-    // Eliminar todos los operadores '+' o '-' y manejar las expresiones numéricas
-    std::istringstream iss(modifiedPoly);
-    std::string token;
-    while (iss >> token) {
-        // Si el término contiene 's', no intentamos convertirlo a double
-        if (token.find("s") != std::string::npos) {
-            continue;  // Si es un término con 's', lo ignoramos
-        }
+    // Iterar sobre los términos y extraer los coeficientes
+    for (std::sregex_iterator i = termsBegin; i != termsEnd; ++i) {
+        std::smatch match = *i;
+        std::string coefStr = match[1].str();  // El coeficiente (con signo, si existe)
+        std::string sTerm = match[2].str();  // El término 's' o 's^n'
 
-        // Intentar convertir los términos numéricos
+        // Convertir el coeficiente a número
         try {
-            coefficients.push_back(std::stod(token));
+            double coefficient = std::stod(coefStr);
+            coefficients.push_back(coefficient);
         } catch (...) {
-            std::cerr << "Error al convertir el término: " << token << std::endl;
+            std::cerr << "Error al convertir el término: " << coefStr << std::endl;
         }
     }
+
 
     return coefficients;
 }
+    
 //Metodo: calcula las raices (polos y ceros) de un polinomio dado sus coeficientes.
 //--
 std::vector<std::complex<double>> MagnitudeAndPhase::findRoots(const std::vector<double>& coefficients) {
@@ -144,21 +139,9 @@ std::string MagnitudeAndPhase::translatefunction(double magnitude, bool isNumera
         translatedfunction = _denominator;  // Si estamos procesando el denominador
     }
 
-    // Reemplazar 's^2' por 'pow(s, 2)' y otros términos con potencias
-    size_t pos = 0;
-    while ((pos = translatedfunction.find("s^", pos)) != std::string::npos) {
-        translatedfunction.replace(pos, 2, "pow(s, ");
-        pos += 5;  // Salta el nuevo "pow("
-        size_t endPos = translatedfunction.find(' ', pos);
-        if (endPos == std::string::npos) {
-            endPos = translatedfunction.find(')', pos);  // Para manejar expresiones cerradas
-        }
-        translatedfunction.replace(endPos, 1, ")");
-    }
-
-    // Reemplazar todos los 's' restantes por el valor de 'magnitude'
+     // Reemplazar todos los 's' por el valor de la magnitud
     std::string magnitudeStr = std::to_string(magnitude);
-    pos = 0;
+    size_t pos = 0;
     while ((pos = translatedfunction.find("s", pos)) != std::string::npos) {
         translatedfunction.replace(pos, 1, "(" + magnitudeStr + ")");
         pos += magnitudeStr.length();
@@ -166,7 +149,6 @@ std::string MagnitudeAndPhase::translatefunction(double magnitude, bool isNumera
 
     return translatedfunction;
 }
-
 
 //Metodo: Calcula la magnitud s ," |s| = |j * w| " para una frecuencia angular dada.
 //--
