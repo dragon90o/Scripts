@@ -263,8 +263,8 @@ int main() {
 
         std::cout << "  --> For w = " << std::fixed << std::setprecision(4) << w << " rad/s:" << std::endl;
         std::cout << "      Magnitude of s = " << magnitude << std::endl;
-        std::cout << "      Phase (in radians) = " << phase << " rad" << std::endl;
-        std::cout << "      Total phase (in degrees) = " << phase * (180.0 / M_PI) << " degrees" << std::endl;
+        std::cout << "      Phase (in degrees) = " << phase << " degrees" << std::endl;
+        
 
         // Translate the numerator and denominator with the magnitude
 	// Numerator
