@@ -25,9 +25,8 @@ class MagnitudeAndPhase {
 	std::vector<double> parseCoefficients(const std::string& polynomial);
 	std::vector<std::complex<double>> findRoots(const std::vector<double>& coefficients);
         std::pair<std::vector<double>, std::vector<double>> frequencies(); 
-        std::string translatefunction(double magnitude, bool isNumerator);
-	double evaluatetranslatedfunction(double magnitude);
-        double calculateMagnitude(double w);
+        std::complex<double> translateFunction(double angularFrequency, bool isNumerator);
+	void calculateMagnitude(double angularFrequency);
         double calculatePhase(double w);
 	void processTransferFunction();
 
@@ -46,46 +45,120 @@ std::vector<double> MagnitudeAndPhase::parseCoefficients(const std::string& poly
     
      // Use a regular expression to separate the expression and properly handle the operators.
      // Regex to handle coefficients with s^n or s
-    std::regex termRegex("([+-]?\\d*\\.\\d+|[+-]?\\d+)(s\\^\\d+|s)?"); 
+    std::regex termRegex("([+-]?\\d*\\.?\\d+)?(s(\\^\\d+)?)?");
     auto termsBegin = std::sregex_iterator(modifiedPoly.begin(), modifiedPoly.end(), termRegex);
     auto termsEnd = std::sregex_iterator();
-
+//DEBUGING -->
+     std::cout << "Debugging: Found " << std::distance(termsBegin, termsEnd) << " matches." << std::endl;
+//END DEBBUGING -->
     //  Iterate over terms and extract coefficients
+    int maxPower = 0;
     for (std::sregex_iterator i = termsBegin; i != termsEnd; ++i) {
         std::smatch match = *i;
-        std::string coefStr = match[1].str();  
+	if (match.str().empty()) continue;
+
         std::string sTerm = match[2].str();  
 
-        // Convert the coefficient to a number
-        try {
-            double coefficient = std::stod(coefStr);
-            coefficients.push_back(coefficient);
-        } catch (...) {
-            std::cerr << "Error converting term: " << coefStr << std::endl;
+        if (!sTerm.empty()) { // Check if it's a term with 's'
+            if (sTerm.find('^') != std::string::npos) {
+                int power = std::stoi(sTerm.substr(sTerm.find('^') + 1));
+                maxPower = std::max(maxPower, power);
+            } else {
+                maxPower = std::max(maxPower, 1); // 's' without '^n' means power 1
+            }
         }
     }
 
+    // Initialize the coefficients vector with zeros
+    coefficients.resize(maxPower + 1, 0.0);
 
+    // Fill coefficients in the proper positions
+    for (std::sregex_iterator i = termsBegin; i != termsEnd; ++i) {
+        std::smatch match = *i;
+	if (match.str().empty() || (match[1].str().empty() && match[2].str().empty())) continue;
+
+        std::string coefStr = match[1].str();  // Coefficient part
+        std::string sTerm = match[2].str();    // 's' term
+
+        // Parse coefficient
+        double coefficient = 1.0; // Default is 1
+        if (!coefStr.empty()) {
+            coefficient = std::stod(coefStr);
+        }
+
+        // Determine power of s
+        int power = 0;
+        if (!sTerm.empty()) {
+            if (sTerm.find('^') != std::string::npos) {
+                power = std::stoi(sTerm.substr(sTerm.find('^') + 1));
+            } else {
+                power = 1; // 's' without '^n' means power 1
+            }
+        }
+
+        // Place coefficient in the correct position
+        coefficients[maxPower - power] = coefficient;
+//DEBUGING
+        // Debugging: Show each term
+        std::cout << "Debugging: term: " << match.str()
+                  << ", coefficient: " << coefficient
+                  << ", power: " << power
+                  << ", maxPower: " << maxPower << std::endl;
+    }
+
+    // Debugging: Show the final coefficients vector
+    std::cout << "Debugging: Coefficients vector: ";
+    for (const auto& coef : coefficients) {
+        std::cout << coef << " ";
+    }
+    std::cout << std::endl;
+//END DEBUGING
     return coefficients;
-}
-    
+}    
 //Method: calculates the roots (poles and zeros) of a polynomial given its coefficients.
 //--
 std::vector<std::complex<double>> MagnitudeAndPhase::findRoots(const std::vector<double>& coefficients) {
     int degree = coefficients.size() - 1;
+    //DEBUGING -->
+    std::cout << "DEBUGING METODO FINDROOTS"<< std::endl;
+    std::cout << "Debugging: Degree of polynomial: " << degree << std::endl;
+    // Mostrar los coeficientes
+    std::cout << "Debugging: Coefficients: ";
+    for (const auto& coef : coefficients) {
+        std::cout << coef << " ";
+    }
+    std::cout << std::endl;
+
+    // END DEBUGING -->
+
     Eigen::MatrixXd companion(degree, degree);
     companion.setZero();
 
-    for (int i = 0; i < degree; ++i) {
-        companion(i, degree - 1) = -coefficients[i] / coefficients.back();
+for (int i = 0; i < degree; ++i) {
+        // Asignar coeficientes en la última columna
+        std::cout << "Assigning coefficient[" << degree - i << "] = "
+                  << coefficients[degree - i] << " to companion matrix.\n";
+
+        companion(i, degree - 1) = -coefficients[degree - i] / coefficients.front();
+
+        // Asignar las subdiagonales
         if (i < degree - 1) {
             companion(i + 1, i) = 1.0;
         }
     }
-
+//DEBUGING --> 
+   // Mostrar la matriz compañera
+    std::cout << "Debugging: Companion matrix:\n" << companion << std::endl;
+//END DEBUGING-->
     Eigen::EigenSolver<Eigen::MatrixXd> solver(companion);
     Eigen::VectorXcd roots = solver.eigenvalues();
-
+//DEBUGING -->
+ // Mostrar raíces calculadas
+    std::cout << "Debugging: Roots (eigenvalues):" << std::endl;
+    for (int i = 0; i < roots.size(); ++i) {
+        std::cout << roots[i] << std::endl;
+    }
+//END DEBUGING -->
     std::vector<std::complex<double>> result(roots.size());
     for (int i = 0; i < roots.size(); ++i) {
         result[i] = roots[i];
@@ -122,85 +195,118 @@ void MagnitudeAndPhase::processTransferFunction() {
 std::pair<std::vector<double>, std::vector<double>> MagnitudeAndPhase::frequencies() {
     std::vector<double> freqVector;
     std::vector<double> angularFreqVector;
-
+//DEBUGING
+    std::cout << "DEBUGING FREQUENCIES"<< std::endl;
+     // Debug: Verificar límites
+    std::cout << "Debugging: Frequencies method" << std::endl;
+    std::cout << "Debugging: Frequency range - Min: " << _freqMin << ", Max: " << _freqMax << std::endl;
+//END DEBUGING
     for (double i = _freqMin; i <= _freqMax; i += 1.0) {
         freqVector.push_back(i);
 	// Angular frequency calculation
         angularFreqVector.push_back(2 * M_PI * i);
+//DEBUGING
+	 // Debug: Mostrar valores en cada iteración
+        std::cout << "Frequency: " << i << ", Angular Frequency: " << angularFreqVector.back() << "rad/s."<< std::endl;
+//END DEBUGING
     }
+    //DEBUGING
+    // Debug: Mostrar tamaños de los vectores
+    std::cout << "Debugging: Frequency vector size: " << freqVector.size() << std::endl;
+    std::cout << "Debugging: Angular Frequency vector size: " << angularFreqVector.size() << std::endl;
+//END DEBUGING
     // Returns the pair of vectors
     return std::make_pair(angularFreqVector, freqVector); 
 }
 //Method: Replaces the `s` variables in the numerator or denominator with the magnitude value.
 //--
-std::string MagnitudeAndPhase::translatefunction(double magnitude, bool isNumerator) {
-    std::string translatedfunction; 
-    if (isNumerator) {
-	// If processing the numerator
-        translatedfunction = _numerator;  
-    } else {
-	// If processing the numerator
-        translatedfunction = _denominator;  
+std::complex<double> MagnitudeAndPhase::translateFunction(double angularFrequency, bool isNumerator) {
+    std::string functionStr = isNumerator ? _numerator : _denominator;
+    std::complex<double> jw(0.0, angularFrequency); // j * omega
+
+    // Evaluar cada término en la expresión
+    std::regex termRegex("([+-]?\\d*\\.?\\d+)?(s(\\^\\d+)?)?");
+    auto termsBegin = std::sregex_iterator(functionStr.begin(), functionStr.end(), termRegex);
+    auto termsEnd = std::sregex_iterator();
+
+    std::complex<double> result(0.0, 0.0); // Resultado acumulado
+
+    // Mostrar la función a evaluar
+    std::cout << "Debugging: Evaluating function: " << functionStr << std::endl;
+    std::cout << "Debugging: Angular frequency (w): " << angularFrequency << std::endl;
+
+    for (auto it = termsBegin; it != termsEnd; ++it) {
+        std::smatch match = *it;
+        if (match.str().empty()) continue;
+
+        // Obtener coeficiente
+        double coefficient = 1.0; // Por defecto
+        if (!match[1].str().empty()) {
+            coefficient = std::stod(match[1].str());
+        }
+
+        // Obtener potencia de s
+        int power = 0;
+        if (!match[2].str().empty()) {
+            if (match[2].str().find('^') != std::string::npos) {
+                power = std::stoi(match[2].str().substr(match[2].str().find('^') + 1));
+            } else {
+                power = 1;
+            }
+        }
+
+        // Evaluar el término
+        std::complex<double> termValue = coefficient * std::pow(jw, power);
+        result += termValue;
+
+        // Mostrar información de depuración por cada término
+        std::cout << "Debugging: Term: " << match.str() 
+                  << ", Coefficient: " << coefficient 
+                  << ", Power: " << power 
+                  << ", Term Value: " << termValue 
+                  << ", Accumulated Result: " << result 
+                  << std::endl;
     }
 
-     // Replace all 's' with the magnitude value  
-    std::string magnitudeStr = std::to_string(magnitude);
-    size_t pos = 0;
-    while ((pos = translatedfunction.find("s", pos)) != std::string::npos) {
-        translatedfunction.replace(pos, 1, "(" + magnitudeStr + ")");
-        pos += magnitudeStr.length();
+    // Mostrar resultado final
+    std::cout << "Debugging: Final translated function result: " << result << std::endl;
+
+    return result;
+}
+  void MagnitudeAndPhase::calculateMagnitude(double angularFrequency) {
+    // Calcular el numerador y denominador traducidos
+    std::complex<double> resultNumerator = translateFunction(angularFrequency, true);
+    std::complex<double> resultDenominator = translateFunction(angularFrequency, false);
+
+    // Evitar división por un denominador cercano a cero
+    if (std::abs(resultDenominator) < 1e-12) {
+        std::cerr << "Error: Denominator is too close to zero!" << std::endl;
+        return;
     }
 
-    return translatedfunction;
+    // Calcular la función de transferencia (numerador / denominador)
+    std::complex<double> transferFunction = resultNumerator / resultDenominator;
+
+    // Calcular magnitud en decibeles (dB)
+    double magnitudeDB = 20 * std::log10(std::abs(transferFunction));
+
+    // Mostrar resultados
+    std::cout << "Numerator: " << resultNumerator << std::endl;
+    std::cout << "Denominator: " << resultDenominator << std::endl;
+    std::cout << "Transfer Function: " << transferFunction << std::endl;
+    std::cout << "Magnitude (dB): " << magnitudeDB << std::endl;
 }
 
-//Method: Calculates the magnitude s, "|s| = |j * w|" for a given angular frequency.
-//--
-double MagnitudeAndPhase::calculateMagnitude(double w) {
-    
-    std::complex<double> s(_s_real, w);  // s = j * w
-    return std::abs(s);  // Retorna la magnitud |s|
-}
 
-//Method: Evaluates the transfer function with the given magnitude (numerator/denominator).
-//--
-double MagnitudeAndPhase::evaluatetranslatedfunction(double magnitude){
 
-        std::string translatedNumerator = translatefunction(magnitude, true);
-        std::string translatedDenominator = translatefunction(magnitude, false);
-
-	// Evaluate numerator
-	exprtk::expression<double> expressionNumerator;
-	exprtk::parser<double> parserNumerator;
-	if (!parserNumerator.compile(translatedNumerator, expressionNumerator)) {
-		std::cerr << "Error compiling the numerator: "<<parserNumerator.error() << std::endl;
-		return 0.0; 
-	}
-	double resultNumerator = expressionNumerator.value();
-
-	//Evaluate denominator
-	exprtk::expression<double> expressionDenominator;
-	exprtk::parser<double> parserDenominator;
-	if (!parserDenominator.compile(translatedDenominator, expressionDenominator)) {
-        std::cerr << "Error compiling the denominator: " << parserDenominator.error() << std::endl;
-        return 0.0;
-    }
-	double resultDenominator = expressionDenominator.value();
-
-	double transferFunction= resultNumerator / resultDenominator;
-
-	double magnitudedB = 20 *log10(transferFunction);
-	return magnitudedB; 
-
-}
 //Method: Calculates the phase of 's' in degrees for a given angular frequency.
 //--
 double MagnitudeAndPhase::calculatePhase(double w){
 	std::complex<double> s(_s_real, w);
-        double magnitude = std::abs(s);
+        double angularFrequency = std::abs(s);
         double phase = std::arg(s);
 
-        std::cout << "s: " << s << " -> Magnitude: " << magnitude << ", Phase (radians)?: " << phase << std::endl;
+        std::cout << "s: " << s << " -> angularFrequency: " << angularFrequency  << ", Phase (radians)?: " << phase << std::endl;
 
 	// Returns the phase in degrees
 	return std::arg(s)*(180.0 /M_PI);
@@ -237,50 +343,13 @@ int main() {
     // Process poles and zeros
     mapObject.processTransferFunction();
     
-    // Call the frequencies() function
+  // Get frequencies and calculate magnitude and phase
     auto [angularFreqVector, freqVector] = mapObject.frequencies();
-
-    // Print angular frequencies
-    std::cout << "\nTotal angular frequencies (w) in radians: ";
     for (const auto& w : angularFreqVector) {
-        std::cout << std::fixed << std::setprecision(4) << w << " rad "; // Agregar un espacio entre los valores
-    }
-    std::cout << std::endl;
-
-    // Print frequencies in Hz
-    std::cout << "Total frequencies (Hz): ";
-    for (const auto& freq : freqVector) {
-        std::cout << std::fixed << std::setprecision(4) << freq << " Hz "; // Agregar un espacio entre los valores
-    }
-    std::cout << std::endl;
-
-
-    // Calculate and print the magnitude of s for each w
-    std::cout << "\nMagnitude and Phase for each angular frequency: " << std::endl;
-    for (const auto& w : angularFreqVector) {
-        double magnitude = mapObject.calculateMagnitude(w);
+        std::cout << "\nFor angular frequency w = " << std::fixed << std::setprecision(4) << w << " rad/s:\n";
+        mapObject.calculateMagnitude(w);
         double phase = mapObject.calculatePhase(w);
-
-        std::cout << "  --> For w = " << std::fixed << std::setprecision(4) << w << " rad/s:" << std::endl;
-        std::cout << "      Magnitude of s = " << magnitude << std::endl;
-        std::cout << "      Phase (in degrees) = " << phase << " degrees" << std::endl;
-        
-
-        // Translate the numerator and denominator with the magnitude
-	// Numerator
-	std::string translatedNumerator = mapObject.translatefunction(magnitude, true);
-	//Denominator
-        std::string translatedDenominator = mapObject.translatefunction(magnitude, false); 
-
-        std::cout << "      Translated numerator: " << translatedNumerator << std::endl;
-        std::cout << "       Translated denominator: " << translatedDenominator << std::endl;
-
-        // Evaluate the transfer function
-	double magnitudedB = mapObject.evaluatetranslatedfunction(magnitude);
-        std::cout << "      Total magnitude in dB = " << std::fixed << std::setprecision(4) << magnitudedB << " dB" << std::endl;
-    }
-    std::cout << std::endl;
-
-    return 0;
+        std::cout << "  Phase (degrees): " << phase << "\n";
+    }    return 0;
 }
 
