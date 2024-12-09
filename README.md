@@ -1,15 +1,9 @@
 
-# 📊 General Transfer Function Analysis in C++
+<h1 align="center"> 📊 General Transfer Function Analysis in C++</h1>
+<h2 align="center">## 🚀 Project Overview</h2>
+<p align="center">
 
 A C++ implementation that allows you to compute the poles, zeros, magnitude in dB, and phase of a general transfer function. The code analyzes the transfer function, calculates its poles and zeros, evaluates its magnitude response (in dB), and computes the phase across specified angular frequencies.
-
-## 🚀 Project Overview
-This project provides a modular approach to analyze transfer functions. Using mathematical techniques, it determines:
-
-Poles and Zeros: Roots of the numerator and denominator polynomials.
-Magnitude Response: Measured in decibels (dB) over a range of angular frequencies.
-Phase Response: The phase angle (in degrees) across a range of angular frequencies.
-This functionality is useful for analyzing control systems, signal processing applications, or frequency response characteristics.
 
 ## 🛠️ Features
 
@@ -19,7 +13,7 @@ This functionality is useful for analyzing control systems, signal processing ap
 ✅ Supports the analysis of general transfer functions with user-provided numerator and denominator polynomials.
 
 ## 🛠️ Dependencies Required
-
+i
 This script relies on several external libraries:
 
 Standard C++ Libraries:
@@ -39,19 +33,17 @@ Installation Path: A single header file, exprtk.hpp, needs to be placed in the c
 Download from: ExprTk GitHub Repository
 
 # Example 
-## transfer function: s^2 + 3s + 2/s^2 + 5s + 6
-## Min frequency 3
-## Max frequency 4
-## sigma value 0
-Introduce the numerator (e.g., s^2 + 3s + 2):
+ transfer function: s^2 + 3s + 2/s^2 + 5s + 6 - Min frequency 3- Max frequency 4 - sigma value 0 
+
+## Introduce the numerator (e.g., s^2 + 3s + 2):
 s^2 + 3s + 2
-Introduce the denominator (e.g., s^2 + 5s + 6):
+## Introduce the denominator (e.g., s^2 + 5s + 6):
 s^2 + 5s + 6
-Introduce the minimum frequency (freqMin):
+## Introduce the minimum frequency (freqMin):
 3
-Introduce the maximum frequency (freqMax):
+## Introduce the maximum frequency (freqMax):
 4
-Introduce the sigma value (or) if it is different from 0.0, otherwise enter 0:
+## Introduce the sigma value (or) if it is different from 0.0, otherwise enter 0:
 0
 Debugging: Found 10 matches.
 Debugging: term: s^2, coefficient: 1, power: 2, maxPower: 2
@@ -141,4 +133,6 @@ Debugging: Transfer Function = (0.9906,0.0785)
 Debugging: Real = 0.9906
 Debugging: Imaginary = 0.0785
 Debugging: Phase (radians) = 0.0790
-Debugging: Phase (degrees) = 4.5284
+Debuggiing: Phase (degrees) = 4.5284
+
+</p>
