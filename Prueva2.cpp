@@ -26,8 +26,8 @@ class MagnitudeAndPhase {
 	std::vector<std::complex<double>> findRoots(const std::vector<double>& coefficients);
         std::pair<std::vector<double>, std::vector<double>> frequencies(); 
         std::complex<double> translateFunction(double angularFrequency, bool isNumerator);
-	void calculateMagnitude(double angularFrequency);
-        double calculatePhase(double w);
+	std::complex<double> calculateMagnitude(double angularFrequency);
+        double calculatePhase(const std::complex<double>& transferFunction);
 	void processTransferFunction();
 
 };
@@ -273,7 +273,7 @@ std::complex<double> MagnitudeAndPhase::translateFunction(double angularFrequenc
 
     return result;
 }
-  void MagnitudeAndPhase::calculateMagnitude(double angularFrequency) {
+std::complex<double> MagnitudeAndPhase::calculateMagnitude(double angularFrequency) {
     // Calcular el numerador y denominador traducidos
     std::complex<double> resultNumerator = translateFunction(angularFrequency, true);
     std::complex<double> resultDenominator = translateFunction(angularFrequency, false);
@@ -281,8 +281,9 @@ std::complex<double> MagnitudeAndPhase::translateFunction(double angularFrequenc
     // Evitar división por un denominador cercano a cero
     if (std::abs(resultDenominator) < 1e-12) {
         std::cerr << "Error: Denominator is too close to zero!" << std::endl;
-        return;
+        return {};
     }
+    
 
     // Calcular la función de transferencia (numerador / denominador)
     std::complex<double> transferFunction = resultNumerator / resultDenominator;
@@ -295,21 +296,30 @@ std::complex<double> MagnitudeAndPhase::translateFunction(double angularFrequenc
     std::cout << "Denominator: " << resultDenominator << std::endl;
     std::cout << "Transfer Function: " << transferFunction << std::endl;
     std::cout << "Magnitude (dB): " << magnitudeDB << std::endl;
+    // Llamar a la función calculatePhase con la transferencia calculada
+    
+    return transferFunction;
 }
 
 
 
 //Method: Calculates the phase of 's' in degrees for a given angular frequency.
 //--
-double MagnitudeAndPhase::calculatePhase(double w){
-	std::complex<double> s(_s_real, w);
-        double angularFrequency = std::abs(s);
-        double phase = std::arg(s);
+double MagnitudeAndPhase::calculatePhase(const std::complex<double>& transferFunction){
+	 double phaseRadians = std::atan2(transferFunction.imag(), transferFunction.real());
 
-        std::cout << "s: " << s << " -> angularFrequency: " << angularFrequency  << ", Phase (radians)?: " << phase << std::endl;
+    // Convertir la fase a grados
+    double phaseDegrees = phaseRadians * (180.0 / M_PI);
 
-	// Returns the phase in degrees
-	return std::arg(s)*(180.0 /M_PI);
+    std::cout << "DEBUGING PHASE"<<std::endl;
+// Debugging para asegurarse de obtener los resultados esperados
+    std::cout << "Debugging: Transfer Function = " << transferFunction << std::endl;
+    std::cout << "Debugging: Real = " << transferFunction.real() << std::endl;
+    std::cout << "Debugging: Imaginary = " << transferFunction.imag() << std::endl;
+    std::cout << "Debugging: Phase (radians) = " << phaseRadians << std::endl;
+    std::cout << "Debugging: Phase (degrees) = " << phaseDegrees << std::endl;
+
+    return phaseDegrees;
 }
 
 
@@ -347,9 +357,11 @@ int main() {
     auto [angularFreqVector, freqVector] = mapObject.frequencies();
     for (const auto& w : angularFreqVector) {
         std::cout << "\nFor angular frequency w = " << std::fixed << std::setprecision(4) << w << " rad/s:\n";
-        mapObject.calculateMagnitude(w);
-        double phase = mapObject.calculatePhase(w);
-        std::cout << "  Phase (degrees): " << phase << "\n";
+
+	 // Calcular la magnitud
+        auto transferFunction = mapObject.calculateMagnitude(w);
+        mapObject.calculatePhase(transferFunction);
+        
     }    return 0;
 }
 
