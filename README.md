@@ -45,6 +45,10 @@ s^2 + 5s + 6
 4
 ## Introduce the sigma value (or) if it is different from 0.0, otherwise enter 0:
 0
+</p>
+--------- <h3 align="center"> better look in Code version ;) </h3>
+<p align="center">
+
 Debugging: Found 10 matches.
 Debugging: term: s^2, coefficient: 1, power: 2, maxPower: 2
 Debugging: term: 3s, coefficient: 3, power: 1, maxPower: 2
