@@ -3,7 +3,7 @@
 <h2 align="center">## 🚀 Project Overview</h2>
 <p align="center">
 
-Prueva2.cpp is a full C++ implementation that allows you to compute poles, zeros, magnitude in dB, and phase of a general transfer function. The user can also specify a custom sigma value (σ) to perform the desired adjustment to the transfer function's analysis.
+Prueva2.cpp is a C++ implementation that allows you to compute poles, zeros, magnitude in dB, and phase of a general transfer function. The user can also specify a custom sigma value (σ) to perform the desired adjustment to the transfer function's analysis.
 
 This implementation uses Eigen for matrix manipulations and polynomial root-finding. Theuser can provide the numerator and denominator coefficients of the transfer function, specify angular frequency ranges, and optionally input a value for σ.
 
