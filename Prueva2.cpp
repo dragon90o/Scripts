@@ -152,17 +152,30 @@ for (int i = 0; i < degree; ++i) {
 //END DEBUGING-->
     Eigen::EigenSolver<Eigen::MatrixXd> solver(companion);
     Eigen::VectorXcd roots = solver.eigenvalues();
-//DEBUGING -->
- // Mostrar raíces calculadas
-    std::cout << "Debugging: Roots (eigenvalues):" << std::endl;
-    for (int i = 0; i < roots.size(); ++i) {
-        std::cout << roots[i] << std::endl;
-    }
-//END DEBUGING -->
+   
+    // Ajustar las raíces con sigma si es necesario
     std::vector<std::complex<double>> result(roots.size());
     for (int i = 0; i < roots.size(); ++i) {
-        result[i] = roots[i];
+        if (std::abs(_s_real) > 1e-9) { // Si sigma se especificó
+            result[i] = roots[i] + _s_real;
+        } else { // Sin desplazamiento
+            result[i] = roots[i];
+        }
+
+  // Debugging: Mostrar cada raíz ajustada
+        std::cout << "Root before adjustment: " << roots[i] 
+                  << ", after adjustment with sigma: " << result[i] << std::endl;
     }
+  // Mostrar las raíces ajustadas dependiendo de si sigma fue proporcionado
+    std::cout << "Debugging: Roots (final, adjusted or original):" << std::endl;
+    for (size_t i = 0; i < roots.size(); ++i) {
+        if (std::abs(_s_real) > 1e-9) { // Si sigma fue especificado, mostrar el ajuste
+            std::cout << result[i] << std::endl;
+        } else { // Si no fue especificado, mostrar la raíz original
+            std::cout << roots[i] << std::endl;
+        }
+    }
+
     return result;
 }
 //Method: Processes the transfer function: calculates zeros, poles, and prints the results.
@@ -223,6 +236,7 @@ std::pair<std::vector<double>, std::vector<double>> MagnitudeAndPhase::frequenci
 std::complex<double> MagnitudeAndPhase::translateFunction(double angularFrequency, bool isNumerator) {
     std::string functionStr = isNumerator ? _numerator : _denominator;
     std::complex<double> jw(0.0, angularFrequency); // j * omega
+    std::complex<double> s = (std::abs(_s_real) > 1e-9)? std::complex<double>(_s_real, angularFrequency): jw;
 
     // Evaluar cada término en la expresión
     std::regex termRegex("([+-]?\\d*\\.?\\d+)?(s(\\^\\d+)?)?");
@@ -256,7 +270,7 @@ std::complex<double> MagnitudeAndPhase::translateFunction(double angularFrequenc
         }
 
         // Evaluar el término
-        std::complex<double> termValue = coefficient * std::pow(jw, power);
+	std::complex<double> termValue = coefficient * std::pow(s, power);
         result += termValue;
 
         // Mostrar información de depuración por cada término
@@ -275,6 +289,13 @@ std::complex<double> MagnitudeAndPhase::translateFunction(double angularFrequenc
 }
 std::complex<double> MagnitudeAndPhase::calculateMagnitude(double angularFrequency) {
     // Calcular el numerador y denominador traducidos
+    // Ajuste de la frecuencia compleja s = sigma + jw
+    std::complex<double> s = _s_real + std::complex<double>(0, angularFrequency);
+
+    // Mostrar s en consola para debugging
+    std::cout << "Debugging: s = sigma + jw = " << s << std::endl;
+    std::cout << "Debugging: Magnitude of s = |s| = " << std::abs(s) << std::endl;
+
     std::complex<double> resultNumerator = translateFunction(angularFrequency, true);
     std::complex<double> resultDenominator = translateFunction(angularFrequency, false);
 
@@ -338,8 +359,12 @@ int main() {
     std::cin >> _freqMin;
     std::cout << "Introduce the maximum frequency (freqMax): " << std::endl;
     std::cin >> _freqMax;
-    std::cout << "Introduce the sigma value (or) if it is different from 0.0, otherwise enter 0: " << std::endl;
-    std::cin >> _s_real;
+    std::cout << "Introduce the sigma value (leave empty or enter 0 for s = jw): " << std::endl;
+    std::cin.ignore(); // Clear previous input
+    std::string sigmaInput;
+    std::getline(std::cin, sigmaInput);
+    // Si el usuario deja vacío, usar _s_real = 0.0
+    _s_real = sigmaInput.empty() ? 0.0 : std::stod(sigmaInput);
 
     // Validation of inputs
     if (_freqMin <= 0 || _freqMax <= _freqMin) {
@@ -364,4 +389,3 @@ int main() {
         
     }    return 0;
 }
-
