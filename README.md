@@ -76,7 +76,8 @@ Assigning coefficient[1] = 3 to companion matrix.
 
 Debugging: Companion matrix:
 
-0 -2 
+0 -2
+
 1 -3
 
 Root before adjustment: (-1,0), after adjustment with sigma: (5,0)
@@ -86,6 +87,7 @@ Root before adjustment: (-2,0), after adjustment with sigma: (4,0)
 Debugging: Roots (final, adjusted or original):
 
 (5,0)
+
 (4,0)
 
 ## DEBUGING METODO FINDROOTS
@@ -101,6 +103,7 @@ Assigning coefficient[1] = 5 to companion matrix.
 Debugging: Companion matrix:
 
  0 -6
+
  1 -5
 
 Root before adjustment: (-2,0), after adjustment with sigma: (4,0)
@@ -110,6 +113,7 @@ Root before adjustment: (-3,0), after adjustment with sigma: (3,0)
 Debugging: Roots (final, adjusted or original):
 
 (4,0)
+
 (3,0)
 
 Zeros (Roots of the Numerator): (5,0) (4,0)
