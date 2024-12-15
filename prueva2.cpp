@@ -10,7 +10,7 @@
 #include "/mnt/c/Users/dravv/Projects/Qt/BodeDiagram/exprtk/exprtk.hpp" 
 #include "eigen-3.4.0/eigen-3.4.0/Eigen/Dense"
 
-#define DEBUG_MODE true// need some debug? 
+#define DEBUG_MODE false// need some debug? 
 
 class MagnitudeAndPhase {
     private:
@@ -173,11 +173,18 @@ std::vector<std::complex<double>> MagnitudeAndPhase::findRoots(const std::vector
     Eigen::MatrixXd companion(degree, degree);
     companion.setZero();
 
+     
+    // Asignar 1 a las subdiagonales
+    for (size_t i = 1; i < degree; ++i) {
+        companion( i - 1 , i ) = 1.0;
+	 std::cout << "Subdiagonal: companion(" << (i - 1) << ", " << i << ") = 1.0" << std::endl;
+    }
+ // Asignar los coeficientes correctamente a la última fila de la matriz
     for (size_t i = 0; i < degree; ++i) {
-        companion(i, degree - 1) = -coefficients[i + 1] / coefficients.front();
-        if (i < degree - 1) {
-            companion(i + 1, i) = 1.0;
-        }
+        companion(degree - 1, i) = -coefficients[degree - i] / coefficients[0];
+        std::cout << "Last row: companion(" << (degree - 1) << ", " 
+                  << i << ") = " 
+                  << -coefficients[degree - i] / coefficients[0] << std::endl;
     }
 
     debugMessage.str("");
