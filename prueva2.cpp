@@ -10,7 +10,7 @@
 #include "/mnt/c/Users/dravv/Projects/Qt/BodeDiagram/exprtk/exprtk.hpp" 
 #include "eigen-3.4.0/eigen-3.4.0/Eigen/Dense"
 
-#define DEBUG_MODE false// need some debug? 
+#define DEBUG_MODE true// need some debug? 
 
 class MagnitudeAndPhase {
     private:
@@ -29,6 +29,7 @@ class MagnitudeAndPhase {
     }
 
     public:
+	bool isStable();
         MagnitudeAndPhase(std::string numerator, std::string denominator, int freqMin, int freqMax, double s_real );
 	std::vector<double> parseCoefficients(const std::string& polynomial);
 	std::vector<std::complex<double>> findRoots(const std::vector<double>& coefficients);
@@ -44,6 +45,7 @@ class MagnitudeAndPhase {
 MagnitudeAndPhase::MagnitudeAndPhase(std::string numerator, std::string denominator, int freqMin, int freqMax, double s_real) 
     : _numerator(numerator), _denominator(denominator), _freqMin(freqMin), _freqMax(freqMax), _s_real(s_real){}
 
+//--
  void MagnitudeAndPhase::processTransferFunction() {
     // Convertir cadenas a coeficientes
     debug("Debugging Method processTransferFunction: ");
@@ -76,24 +78,22 @@ std::vector<double> MagnitudeAndPhase::parseCoefficients(const std::string& poly
 
     debug("\033[32mDebugging Method parseCoefficients: \033[0m");
 
-    std::regex termRegex("([+-]?\\d*\\.?\\d+)?(s(\\^\\d+)?)?");
+    std::regex termRegex(R"(([+-]?\s*\d*\.?\d*)\s*(s(\^\d+)?)?)");
     auto termsBegin = std::sregex_iterator(modifiedPoly.begin(), modifiedPoly.end(), termRegex);
     auto termsEnd = std::sregex_iterator();
 
-    
     int maxPower = 0;
     for (std::sregex_iterator i = termsBegin; i != termsEnd; ++i) {
         std::smatch match = *i;
-	if (match.str().empty()) continue;
+        if (match.str().empty()) continue;
 
-        std::string sTerm = match[2].str();  
-
-        if (!sTerm.empty()) { // Check if it's a term with 's'
+        std::string sTerm = match[2].str();
+        if (!sTerm.empty()) {
             if (sTerm.find('^') != std::string::npos) {
                 int power = std::stoi(sTerm.substr(sTerm.find('^') + 1));
                 maxPower = std::max(maxPower, power);
             } else {
-                maxPower = std::max(maxPower, 1); 
+                maxPower = std::max(maxPower, 1);
             }
         }
     }
@@ -102,57 +102,65 @@ std::vector<double> MagnitudeAndPhase::parseCoefficients(const std::string& poly
 
     for (std::sregex_iterator i = termsBegin; i != termsEnd; ++i) {
         std::smatch match = *i;
-	if (match.str().empty() || (match[1].str().empty() && match[2].str().empty())) continue;
+        if (match.str().empty() || (match[1].str().empty() && match[2].str().empty())) continue;
 
-        std::string coefStr = match[1].str();  // Coefficient part
-        std::string sTerm = match[2].str();    // 's' term
+        std::string coefStr = match[1].str();
+        std::string sTerm = match[2].str();
 
-        // Parse coefficient
-        double coefficient = 1.0; // Default is 1
-        if (!coefStr.empty()) {
+        // Eliminar espacios en blanco
+        coefStr.erase(remove_if(coefStr.begin(), coefStr.end(), ::isspace), coefStr.end());
+
+        // Parsear coeficiente
+        double coefficient = 1.0;
+        if (!coefStr.empty() && coefStr != "+" && coefStr != "-") {
             coefficient = std::stod(coefStr);
+        } else if (coefStr == "-") {
+            coefficient = -1.0;
         }
 
-        // Determine power of s
+        // Determinar potencia de s
         int power = 0;
         if (!sTerm.empty()) {
             if (sTerm.find('^') != std::string::npos) {
                 power = std::stoi(sTerm.substr(sTerm.find('^') + 1));
             } else {
-                power = 1; // 's' without '^n' means power 1
+                power = 1;
             }
         }
 
-        // Place coefficient in the correct position
+        // Colocar coeficiente en la posición correcta
         coefficients[maxPower - power] = coefficient;
-       //DEBUGING-->
-       std::ostringstream debugMessage;
-       debugMessage << "Debugging: term: " << match.str()
-                    << ", coefficient: " << coefficient
-                    << ", power: " << power
-                    << ", maxPower: " << maxPower;
-       debugMessage << "\n";
-       debug(debugMessage.str());
+
+        // Depuración
+        std::ostringstream debugMessage;
+        debugMessage << "Debugging: term: " << match.str()
+                     << ", coefficient: " << coefficient
+                     << ", power: " << power
+                     << ", maxPower: " << maxPower;
+        debugMessage << "\n";
+        debug(debugMessage.str());
     }
 
-    // Debugging: Show the final coefficients vectors
-	std::ostringstream debugMessage1;
-	debugMessage1 << "Debugging: Coefficients vector: ";
-	for (const auto& coef : coefficients) {
-        	debugMessage1 << coef << " ";
+    // Depuración: Mostrar el vector final de coeficientes
+    std::ostringstream debugMessage1;
+    debugMessage1 << "Debugging: Coefficients vector: ";
+    for (const auto& coef : coefficients) {
+        debugMessage1 << coef << " ";
     }
-    	debugMessage1 << "\n";
-    	debug(debugMessage1.str());
-    	// END DEBUGING -->
-	return coefficients;
-}   
+    debugMessage1 << "\n";
+    debug(debugMessage1.str());
 
-//--
+    return coefficients;
+}//--
 std::vector<std::complex<double>> MagnitudeAndPhase::findRoots(const std::vector<double>& coefficients) {
     size_t degree = coefficients.size() - 1;
-    //DEBUGING -->
     debug("\033[32mDebugging Method findRoots: \033[0m");
-     
+
+    // Validar el grado del polinomio y los coeficientes
+    if (degree < 1) throw std::invalid_argument("The polynomial degree must be at least 1.");
+    if (coefficients[0] == 0) throw std::invalid_argument("The leading coefficient cannot be zero.");
+    if (coefficients.size() != degree + 1) throw std::invalid_argument("The size of the coefficients vector must be degree + 1.");
+
     std::ostringstream debugMessage;
     debugMessage << "Debugging: Degree of polynomial: " << degree << std::endl
                  << "Debugging: Coefficients: ";
@@ -161,61 +169,39 @@ std::vector<std::complex<double>> MagnitudeAndPhase::findRoots(const std::vector
     }
     debugMessage << "\n";
     debug(debugMessage.str());
-    // END DEBUGING -->
 
     Eigen::MatrixXd companion(degree, degree);
     companion.setZero();
 
-for (size_t i = 0; i < degree; ++i) {
-        // Asignar coeficientes en la última columna
-        std::cout << "Assigning coefficient[" << degree - i << "] = "
-                  << coefficients[degree - i] << " to companion matrix.\n";
-
-        companion(i, degree - 1) = -coefficients[degree - i] / coefficients.front();
-
-        // Asignar las subdiagonales
+    for (size_t i = 0; i < degree; ++i) {
+        companion(i, degree - 1) = -coefficients[i + 1] / coefficients.front();
         if (i < degree - 1) {
             companion(i + 1, i) = 1.0;
         }
     }
-	//DEBUGING --> 
-	std::ostringstream debugMessage1;
-	debugMessage1 << "Debugging: Companion matrix:\n" << companion << std::endl;
-	
-	debug(debugMessage1.str());
-        //END DEBUGING-->
+
+    debugMessage.str("");
+    debugMessage << "Debugging: Companion matrix:\n" << companion << std::endl;
+    debug(debugMessage.str());
+
     Eigen::EigenSolver<Eigen::MatrixXd> solver(companion);
     Eigen::VectorXcd roots = solver.eigenvalues();
-   
-    // Ajustar las raíces con sigma si es necesario
+
     std::vector<std::complex<double>> result(roots.size());
     for (size_t i = 0; i < roots.size(); ++i) {
-        if (std::abs(_s_real) > 1e-9) { // Si sigma se especificó
-            result[i] = roots[i] + _s_real;
-        } else { // Sin desplazamiento
-            result[i] = roots[i];
-        }
-
-        std::ostringstream debugMessage2;
-        debugMessage2 << "Root before adjustment: " << roots[i] 
-                     << ", after adjustment with sigma: " << result[i] << std::endl;
-	
-    debug(debugMessage2.str());
-
+        result[i] = (std::abs(_s_real) > 1e-9) ? roots[i] + _s_real : roots[i];
+        debugMessage.str("");
+        debugMessage << "Root before adjustment: " << roots[i] << ", after adjustment with sigma: " << result[i] << std::endl;
+        debug(debugMessage.str());
     }
-  // Mostrar las raíces ajustadas dependiendo de si sigma fue proporcionado
-    debug( "Debugging: Roots (final, adjusted or original):");
-    for (size_t i = 0; i < roots.size(); ++i) {
-        if (std::abs(_s_real) > 1e-9) { // Si sigma fue especificado, mostrar el ajuste
-            std::cout << result[i] << std::endl;
-        } else { // Si no fue especificado, mostrar la raíz original
-            std::cout << roots[i] << std::endl;
-        }
+
+    debug("Debugging: Roots (final, adjusted or original):");
+    for (const auto& root : result) {
+        std::cout << root << std::endl;
     }
 
     return result;
 }
-
 //--
 std::pair<std::vector<double>, std::vector<double>> MagnitudeAndPhase::frequencies() {
     std::vector<double> freqVector;
@@ -374,6 +360,21 @@ double MagnitudeAndPhase::calculatePhase(const std::complex<double>& transferFun
 
     return phaseDegrees;
 }
+//--
+bool MagnitudeAndPhase::isStable(){
+	if (poles.empty()) {
+        // Si no hay polos, asumimos que el sistema no puede ser estable
+        return false;
+    }
+
+for (const auto& pole : poles) { 
+if (pole.real() >=0) {
+return false; // unstable system if a real pole part is not negative 
+}
+}
+return true; // stable system if all poles have a real negative part 	
+}
+
 
 int main() {
     double _freqMin;
@@ -408,6 +409,13 @@ int main() {
 
     // Process poles and zeros
     mapObject.processTransferFunction();
+
+      if (mapObject.isStable()) {
+        std::cout << "The system is stable." << std::endl;
+    } else {
+        std::cout << "The system is unstable." << std::endl;
+    }
+
     
   // Get frequencies and calculate magnitude and phase
     auto [angularFreqVector, freqVector] = mapObject.frequencies();
